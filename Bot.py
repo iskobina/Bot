@@ -16,7 +16,7 @@ password = os.getenv('PASSWORD')
 
 # Подключаем логирование
 logging.basicConfig(
-    filename='logfile.txt', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
+    filename=r'C:\Users\PT\source\repos\logfile.txt', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
 )
 
 logger = logging.getLogger(__name__)
