@@ -279,3 +279,6 @@ TypeError: get_release() takes 0 positional arguments but 2 were given
 2024-05-05 13:27:49,771 - paramiko.transport - INFO - Authentication (password) successful!
 2024-05-05 13:27:57,763 - paramiko.transport - INFO - Connected (version 2.0, client OpenSSH_9.6p1)
 2024-05-05 13:27:57,889 - paramiko.transport - INFO - Authentication (password) successful!
+2024-05-05 13:32:29,178 - apscheduler.scheduler - INFO - Scheduler started
+2024-05-05 13:32:36,380 - paramiko.transport - INFO - Connected (version 2.0, client OpenSSH_9.6p1)
+2024-05-05 13:32:36,508 - paramiko.transport - INFO - Authentication (password) successful!

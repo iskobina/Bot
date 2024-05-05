@@ -3,8 +3,10 @@ import logging,os,re,paramiko
 from telegram import Update, ForceReply
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler
 from dotenv import load_dotenv
+from pathlib import Path
 
-load_dotenv()
+dotenv_path = Path(r'C:\Users\PT\source\repos\.env')
+load_dotenv(dotenv_path)
 
 TOKEN = os.getenv('TOKEN')
 host = os.getenv('HOST')
