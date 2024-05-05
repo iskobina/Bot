@@ -1,18 +1,26 @@
-import logging,os,re,paramiko
+import logging,os,re,paramiko,psycopg2
 
 from telegram import Update, ForceReply
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler
 from dotenv import load_dotenv
 from pathlib import Path
+from psycopg2 import Error
 
 dotenv_path = Path(r'C:\Users\PT\source\repos\.env')
 load_dotenv(dotenv_path)
 
 TOKEN = os.getenv('TOKEN')
+
+#SSH
 host = os.getenv('HOST')
 port = os.getenv('PORT')
 username = os.getenv('USER')
 password = os.getenv('PASSWORD')
+#PostgreSQL
+userPost = os.getenv("USERPOST")
+passwordPost = os.getenv("PASSWORDPOST")
+portPost = os.getenv("PORTPOST")
+databasePost = os.getenv("DATABASE")
 
 # Подключаем логирование
 logging.basicConfig(
@@ -29,9 +37,7 @@ def findPhoneNumbersCommand(update: Update, context):
 
 def findPhoneNumbers (update: Update, context):
     user_input = update.message.text # Получаем текст, содержащий(или нет) номера телефонов
-
-    #phoneNumRegex = re.compile(r'(\+7|8)?\s*(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{2}[\s.-]?\d{2}')
-    #phoneNumRegex = re.compile(r'(\+7|8)(\s?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{2}[\s.-]?\d{2})')
+    
     phoneNumRegex = re.compile(r'(\+7|8)([\s\(\-]?)([\s\(\-]?)(\d{3})([\s\)\-]?)([\s\(\-]?)(\d{3})([\s\-]?)(\d{2})([\s\-]?)(\d{2})')
     phoneNumberList = phoneNumRegex.findall(user_input) # Ищем номера телефонов
 
@@ -242,6 +248,56 @@ def GetAptList (update: Update, context):
         update.message.reply_text(data)
         return ConversationHandler.END # Завершаем работу обработчика диалога
 
+def get_emails(update: Update, context):
+    connection = None
+    
+    try:
+        connection = psycopg2.connect(user=userPost, password=passwordPost, host=host, port=portPost, database=databasePost)
+
+        cursor = connection.cursor()
+        cursor.execute("SELECT * FROM emails;")
+        data = cursor.fetchall()
+        for row in data:
+            update.message.reply_text(row)
+            logging.info("Команда успешно выполнена")
+    except (Exception, Error) as error:
+        logging.error("Ошибка при работе с PostgreSQL: %s", error)
+        update.message.reply_text ("Ошибка при работе с PostgreSQL")
+    finally:
+        if connection is not None:
+            cursor.close()
+            connection.close()
+
+def get_phone_numbers(update: Update, context):
+    connection = None
+    
+    try:
+        connection = psycopg2.connect(user=userPost, password=passwordPost, host=host, port=portPost, database=databasePost)
+
+        cursor = connection.cursor()
+        cursor.execute("SELECT * FROM numbersphone;")
+        data = cursor.fetchall()
+        for row in data:
+            update.message.reply_text(row)
+            logging.info("Команда успешно выполнена")
+    except (Exception, Error) as error:
+        logging.error("Ошибка при работе с PostgreSQL: %s", error)
+        update.message.reply_text ("Ошибка при работе с PostgreSQL")
+    finally:
+        if connection is not None:
+            cursor.close()
+            connection.close()
+
+def get_repl_logs(update: Update, context):
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.connect(hostname=host, username=username, password=password, port=port)
+    stdin, stdout, stderr = client.exec_command('cat /var/log/postgresql/* | grep -i replica | tail -n 10')
+    data = stdout.read() + stderr.read()
+    client.close()
+    data = str(data).replace('\\n', '\n').replace('\\t', '\t')[2:-1]    
+    update.message.reply_text(data)
+
 def main():
     updater = Updater(TOKEN, use_context=True)
 
@@ -299,6 +355,10 @@ def main():
     dp.add_handler(CommandHandler('get_ss', get_ss))
     dp.add_handler(convHandlerGetAptList)
     dp.add_handler(CommandHandler('get_services', get_services))
+
+    dp.add_handler(CommandHandler('get_emails', get_emails))
+    dp.add_handler(CommandHandler('get_phone_numbers', get_phone_numbers))
+    dp.add_handler(CommandHandler('get_repl_logs', get_repl_logs))
 
     updater.start_polling()# Запускаем бота
     updater.idle()# Останавливаем бота при нажатии Ctrl+C
