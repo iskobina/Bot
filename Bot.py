@@ -1,368 +1,349 @@
+from shlex import join
+import telebot
+from telebot import types
 import logging,os,re,paramiko,psycopg2
-
-from telegram import Update, ForceReply
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler
 from dotenv import load_dotenv
-from pathlib import Path
 from psycopg2 import Error
+from pathlib import Path
 
-dotenv_path = Path(r'C:\Users\PT\source\repos\.env')
-load_dotenv(dotenv_path)
+load_dotenv()
 
-TOKEN = os.getenv('TOKEN')
+#ENV
+##########SSH##########
+host = os.getenv('RM_HOST')
+port = os.getenv('RM_PORT')
+username = os.getenv('RM_USER')
+password = os.getenv('RM_PASSWORD')
 
-#SSH
-host = os.getenv('HOST')
-port = os.getenv('PORT')
-username = os.getenv('USER')
-password = os.getenv('PASSWORD')
-#PostgreSQL
-userPost = os.getenv("USERPOST")
-passwordPost = os.getenv("PASSWORDPOST")
-portPost = os.getenv("PORTPOST")
-databasePost = os.getenv("DATABASE")
+##########PostgreSQL##########
+usernameDB = os.getenv("DB_USER")
+passwordDB = os.getenv("DB_PASSWORD")
+hostDB = os.getenv('DB_HOST')
+portDB = os.getenv("DB_PORT")
+databaseDB = os.getenv("DB_DATABASE")
+
+
+API_TOKEN = os.getenv('TOKEN')
+bot = telebot.TeleBot(API_TOKEN)
 
 # Подключаем логирование
 logging.basicConfig(
-    filename=r'C:\Users\PT\source\repos\logfile.txt', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
+    filename='logfile.txt', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
 )
 
 logger = logging.getLogger(__name__)
 
+@bot.message_handler(commands=['start'])
+def start_message(message):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    btn1 = types.KeyboardButton("/find_email")
+    btn2 = types.KeyboardButton("/find_phone_number")
+    btn3 = types.KeyboardButton("/verify_password")
+    btn4 = types.KeyboardButton("/get_release")
+    btn5 = types.KeyboardButton("/get_uname")
+    btn6 = types.KeyboardButton("/get_uptime")
+    btn7 = types.KeyboardButton("/get_df")
+    btn8 = types.KeyboardButton("/get_free")
+    btn9 = types.KeyboardButton("/get_mpstat")
+    btn10 = types.KeyboardButton("/get_w")
+    btn11 = types.KeyboardButton("/get_auths")
+    btn12 = types.KeyboardButton("/get_critical")
+    btn13 = types.KeyboardButton("/get_ps")
+    btn14 = types.KeyboardButton("/get_ss")
+    btn15 = types.KeyboardButton("/get_apt_list")
+    btn16 = types.KeyboardButton("/get_services")
+    btn17 = types.KeyboardButton("/get_repl_logs")
+    btn18 = types.KeyboardButton("/get_emails")
+    btn19 = types.KeyboardButton("/get_phone_numbers")
+    markup.add(btn1, btn2, btn3, btn4, btn5, btn6, btn7, btn8, btn9, btn10, btn11, btn12, btn13, btn14, btn15, btn16, btn17, btn18, btn19)
+    bot.send_message(message.chat.id, "Выберите команду", reply_markup=markup)
 
-def findPhoneNumbersCommand(update: Update, context):
-    update.message.reply_text('Введите текст для поиска телефонных номеров: ')
-
-    return 'find_phone_number'
-
-def findPhoneNumbers (update: Update, context):
-    user_input = update.message.text # Получаем текст, содержащий(или нет) номера телефонов
     
-    phoneNumRegex = re.compile(r'(\+7|8)([\s\(\-]?)([\s\(\-]?)(\d{3})([\s\)\-]?)([\s\(\-]?)(\d{3})([\s\-]?)(\d{2})([\s\-]?)(\d{2})')
-    phoneNumberList = phoneNumRegex.findall(user_input) # Ищем номера телефонов
+@bot.message_handler(func=lambda message: True, content_types=['text'])
+def basic_command(message):
+    match message.text:
+        case "/find_email":
+            bot.send_message(message.chat.id, 'Введите текст для поиска email-адресов:')
+            bot.register_next_step_handler(message, find_email)
+        case "/find_phone_number":
+            bot.send_message(message.chat.id, 'Введите текст для поиска телефонных номеров:')
+            bot.register_next_step_handler(message, find_phone_number)
+        case "/verify_password":
+            bot.send_message(message.chat.id, 'Введите пароль для проверки сложности.\nТребования к паролю:\n1) должен содержать не менее восьми символов;\n2) должен включать как минимум одну заглавную букву (A–Z);\n3) должен включать хотя бы одну строчную букву (a–z);\n4) должен включать хотя бы одну цифру (0–9);\n5) должен включать хотя бы один специальный символ, такой как !@#$%^&*().')
+            bot.register_next_step_handler(message, verify_password)
+        case "/get_release":
+            bot.send_message(message.chat.id, get_release())
+        case "/get_uname":
+            bot.send_message(message.chat.id, get_uname())
+        case "/get_uptime":
+            bot.send_message(message.chat.id, get_uptime())
+        case "/get_df":
+            bot.send_message(message.chat.id, get_df())
+        case "/get_free":
+            bot.send_message(message.chat.id, get_free())
+        case "/get_mpstat":
+            bot.send_message(message.chat.id, get_mpstat())
+        case "/get_w":
+            bot.send_message(message.chat.id, get_w())
+        case "/get_auths":
+            bot.send_message(message.chat.id, get_auths())
+        case "/get_critical":
+            bot.send_message(message.chat.id, get_critical())
+        case "/get_ps":
+            bot.send_message(message.chat.id, get_ps())
+        case "/get_ss":
+            bot.send_message(message.chat.id, get_ss())
+        case "/get_apt_list":
+            bot.send_message(message.chat.id, 'Если вас интересует вывод всех пакетов, то напишите: ALL \nЕсли вас интересует информация о конкретном пакете, то напишите его название')
+            bot.register_next_step_handler(message, get_apt_list)
+        case "/get_services":
+            bot.send_message(message.chat.id, get_services())
+        case "/get_repl_logs":
+            bot.send_message(message.chat.id, get_repl_logs())
+        case "/get_emails":
+            try:
+                emails = get_emails()
+                str_emails = '\n'.join(map(str, emails))
+                bot.send_message(message.chat.id, str_emails)
+            except:
+                bot.send_message(message.chat.id, 'email-адреса не найдены')
+        case "/get_phone_numbers":
+            try:
+                phones = get_phone_numbers()
+                str_phones = '\n'.join(map(str, phones))
+                bot.send_message(message.chat.id, str_phones)
+            except:
+                bot.send_message(message.chat.id, 'Телефонные номера не найдены')
+        case _:
+            bot.send_message(message.chat.id, 'Некорректный запрос!')
 
-    if not phoneNumberList: # Обрабатываем случай, когда номеров телефонов нет
-        update.message.reply_text('Телефонные номера не найдены')
-        return ConversationHandler.END # Завершаем работу обработчика диалога
-    
-    phoneNumbers = '' # Создаем строку, в которую будем записывать номера телефонов
-    for i in range(len(phoneNumberList)):
-        phoneNumbers += f'{i+1}. {''.join(map(str,phoneNumberList[i]))}\n' # Записываем очередной номер
-        
-    update.message.reply_text(phoneNumbers) # Отправляем сообщение пользователю
-    return ConversationHandler.END # Завершаем работу обработчика диалога
 
-def findEmailsCommand(update: Update, context):
-    update.message.reply_text('Введите текст для поиска email-адресов: ')
-
-    return 'find_email'
-
-def findEmails (update: Update, context):
-    user_input = update.message.text # Получаем текст, содержащий(или нет) email
+def find_email(message):
+    user_input = message.text # Получаем текст, содержащий(или нет) email
 
     emailNumRegex = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b') # формат 
 
     emailList = emailNumRegex.findall(user_input) # Ищем email
 
     if not emailList: # Обрабатываем случай, когда email нет
-        update.message.reply_text('email-адреса не найдены')
-        return ConversationHandler.END # Завершаем работу обработчика диалога
-    
-    emailNumbers = '' # Создаем строку, в которую будем записывать email
-    for i in range(len(emailList)):
-        emailNumbers += f'{i+1}. {emailList[i]}\n' # Записываем очередной email
+        bot.send_message(message.chat.id, 'email-адреса не найдены')
+    else:
+        emailNumbers = '' # Создаем строку, в которую будем записывать email
+        for i in range(len(emailList)):
+            emailNumbers += f'{emailList[i]}\n' # Записываем очередной email
         
-    update.message.reply_text(emailNumbers) # Отправляем сообщение пользователю
-    return ConversationHandler.END # Завершаем работу обработчика диалога
+        bot.send_message(message.chat.id, emailNumbers)
+        bot.send_message(message.chat.id, 'Записать почтовые адреса в базу данных? Введите "Да" или "Нет"')
+        bot.register_next_step_handler(message, save_email_db, emailNumbers)
 
-def verifyPasswordCommand(update: Update, context):
-    update.message.reply_text('Введите пароль для проверки сложности.\nТребования к паролю:\n1) должен содержать не менее восьми символов;\n2) должен включать как минимум одну заглавную букву (A–Z);\n3) должен включать хотя бы одну строчную букву (a–z);\n4) должен включать хотя бы одну цифру (0–9);\n5) должен включать хотя бы один специальный символ, такой как !@#$%^&*().')
 
-    return 'verify_password'
+def find_phone_number(message):
+    user_input = message.text # Получаем текст, содержащий(или нет) номера телефонов
+    
+    phoneNumRegex = re.compile(r'(\+7|8)([\s\(\-]?)([\s\(\-]?)(\d{3})([\s\)\-]?)([\s\(\-]?)(\d{3})([\s\-]?)(\d{2})([\s\-]?)(\d{2})')
+    phoneNumberList = phoneNumRegex.findall(user_input) # Ищем номера телефонов
 
-def verifyPassword (update: Update, context):
-    user_input = update.message.text # Получаем пароль
+    if not phoneNumberList: # Обрабатываем случай, когда номеров телефонов нет
+        bot.send_message(message.chat.id, 'Телефонные номера не найдены')
+    else:
+        phoneNumbers = '' # Создаем строку, в которую будем записывать номера телефонов
+        for i in range(len(phoneNumberList)):
+            phoneNumbers += f'{''.join(map(str,phoneNumberList[i]))}\n' # Записываем очередной номер
+        
+        bot.send_message(message.chat.id, phoneNumbers) # Отправляем сообщение пользователю
+        bot.send_message(message.chat.id, 'Записать номера телефонов в базу данных? Введите "Да" или "Нет"')
+        bot.register_next_step_handler(message, save_phone_db, phoneNumbers)
+        
+
+def verify_password(message):
+    user_input = message.text # Получаем пароль
     if ' ' in user_input:
-        update.message.reply_text('Ошибка: в вашем пароле есть пробелы')
-        return ConversationHandler.END # Завершаем работу обработчика диалога
-    if '\n' in user_input:
-        update.message.reply_text('Ошибка: в вашем пароле есть Enter')
-        return ConversationHandler.END # Завершаем работу обработчика диалога
-    
-    PassRegex = re.compile(r'^(?=.*[0-9].*)(?=.*[a-z].*)(?=.*[A-Z].*)(?=.*[!@#$%^&*().].*)[0-9a-zA-Z!@#$%^&*().]{8,}$') # формат 
-
-    Pass = PassRegex.search(user_input) # Ищем пароль
-
-    if Pass: # Обрабатываем случай, когда пароль подходит
-        update.message.reply_text('Пароль '+Pass.group()+' сложный')
-        return ConversationHandler.END # Завершаем работу обработчика диалога
+        bot.send_message(message.chat.id, 'Ошибка: в вашем пароле есть пробелы')
+    elif '\n' in user_input:
+        bot.send_message(message.chat.id, 'Ошибка: в вашем пароле есть Enter')
     else:
-        update.message.reply_text('Пароль ' +user_input+ ' простой')
-        return ConversationHandler.END # Завершаем работу обработчика диалога
+        PassRegex = re.compile(r'^(?=.*[0-9].*)(?=.*[a-z].*)(?=.*[A-Z].*)(?=.*[!@#$%^&*().].*)[0-9a-zA-Z!@#$%^&*().]{8,}$') # формат 
 
-def get_release(update: Update, context):
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(hostname=host, username=username, password=password, port=port)
-    stdin, stdout, stderr = client.exec_command('lsb_release -a')
-    data = stdout.read() + stderr.read()
-    client.close()
-    data = str(data).replace('\\n', '\n').replace('\\t', '\t')[2:-1]    
-    update.message.reply_text(data)
+        Pass = PassRegex.search(user_input) # Ищем пароль
 
-def get_uname(update: Update, context):
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(hostname=host, username=username, password=password, port=port)
-    stdin, stdout, stderr = client.exec_command('uname -mrn')
-    data = stdout.read() + stderr.read()
-    client.close()
-    data = str(data).replace('\\n', '\n').replace('\\t', '\t')[2:-1]    
-    update.message.reply_text(data)
+        if Pass: # Обрабатываем случай, когда пароль подходит
+            bot.send_message(message.chat.id, 'Пароль сложный')
+        else:
+            bot.send_message(message.chat.id, 'Пароль простой')
 
-def get_uptime(update: Update, context):
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(hostname=host, username=username, password=password, port=port)
-    stdin, stdout, stderr = client.exec_command('uptime')
-    data = stdout.read() + stderr.read()
-    client.close()
-    data = str(data).replace('\\n', '\n').replace('\\t', '\t')[2:-1]    
-    update.message.reply_text(data)
 
-def get_df(update: Update, context):
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(hostname=host, username=username, password=password, port=port)
-    stdin, stdout, stderr = client.exec_command('df -h')
-    data = stdout.read() + stderr.read()
-    client.close()
-    data = str(data).replace('\\n', '\n').replace('\\t', '\t')[2:-1]    
-    update.message.reply_text(data)
+def get_release() -> str:
+    mon_command = 'lsb_release -a'   
+    return ssh_connect(mon_command)
 
-def get_free(update: Update, context):
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(hostname=host, username=username, password=password, port=port)
-    stdin, stdout, stderr = client.exec_command('free')
-    data = stdout.read() + stderr.read()
-    client.close()
-    data = str(data).replace('\\n', '\n').replace('\\t', '\t')[2:-1]    
-    update.message.reply_text(data)
+def get_uname() -> str:
+    mon_command = 'uname -mrn'   
+    return ssh_connect(mon_command)
 
-def get_mpstat(update: Update, context):
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(hostname=host, username=username, password=password, port=port)
-    stdin, stdout, stderr = client.exec_command('mpstat')
-    data = stdout.read() + stderr.read()
-    client.close()
-    data = str(data).replace('\\n', '\n').replace('\\t', '\t')[2:-1]    
-    update.message.reply_text(data)
+def get_uptime() -> str:
+    mon_command = 'uptime'   
+    return ssh_connect(mon_command)
 
-def get_w(update: Update, context):
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(hostname=host, username=username, password=password, port=port)
-    stdin, stdout, stderr = client.exec_command('w')
-    data = stdout.read() + stderr.read()
-    client.close()
-    data = str(data).replace('\\n', '\n').replace('\\t', '\t')[2:-1]    
-    update.message.reply_text(data)
+def get_df() -> str:
+    mon_command = 'df -h'   
+    return ssh_connect(mon_command)
 
-def get_auths(update: Update, context):
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(hostname=host, username=username, password=password, port=port)
-    stdin, stdout, stderr = client.exec_command('last | head -n 10')
-    data = stdout.read() + stderr.read()
-    client.close()
-    data = str(data).replace('\\n', '\n').replace('\\t', '\t')[2:-1]    
-    update.message.reply_text(data)
+def get_free() -> str:
+    mon_command = 'free'
+    return ssh_connect(mon_command)
 
-def get_critical(update: Update, context):
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(hostname=host, username=username, password=password, port=port)
-    stdin, stdout, stderr = client.exec_command('cat /var/log/syslog | grep -P \'error|crit\' | tail -n 5')
-    data = stdout.read() + stderr.read()
-    client.close()
-    data = str(data).replace('\\n', '\n').replace('\\t', '\t')[2:-1]    
-    update.message.reply_text(data)
+def get_mpstat() -> str:
+    mon_command = 'mpstat'
+    return ssh_connect(mon_command)
 
-def get_ps(update: Update, context):
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(hostname=host, username=username, password=password, port=port)
-    stdin, stdout, stderr = client.exec_command('ps | head -n 10')
-    data = stdout.read() + stderr.read()
-    client.close()
-    data = str(data).replace('\\n', '\n').replace('\\t', '\t')[2:-1]    
-    update.message.reply_text(data)
+def get_w() -> str:
+    mon_command = 'w'
+    return ssh_connect(mon_command)
 
-def get_ss(update: Update, context):
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(hostname=host, username=username, password=password, port=port)
-    stdin, stdout, stderr = client.exec_command('ss -tunp')
-    data = stdout.read() + stderr.read()
-    client.close()
-    data = str(data).replace('\\n', '\n').replace('\\t', '\t')[2:-1]    
-    update.message.reply_text(data)
+def get_auths() -> str:
+    mon_command = 'last | head -n 10'
+    return ssh_connect(mon_command)
 
-def get_services(update: Update, context):
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(hostname=host, username=username, password=password, port=port)
-    stdin, stdout, stderr = client.exec_command('systemctl --type service | tail -n 10')
-    data = stdout.read() + stderr.read()
-    client.close()
-    data = str(data).replace('\\n', '\n').replace('\\t', '\t')[2:-1]    
-    update.message.reply_text(data)
+def get_critical() -> str:
+    mon_command = 'cat /var/log/syslog | grep -P \'error|crit\' | tail -n 5'
+    return ssh_connect(mon_command)
 
-def GetAptListCommand(update: Update, context):
-    update.message.reply_text('Если вас интересует вывод всех пакетов, то напишите: 1 \nЕсли вас интересует информация о конкретном пакете, то напишите его название ')
-    return 'get_apt_list'
+def get_ps() -> str:
+    mon_command = 'ps | head -n 10'
+    return ssh_connect(mon_command)
 
-def GetAptList (update: Update, context):
-    user_input = update.message.text
+def get_ss() -> str:
+    mon_command = 'ss -tunp'
+    return ssh_connect(mon_command)
+
+def get_apt_list(message):
+    user_input = message.text
     
-    if user_input == '1':
-        client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        client.connect(hostname=host, username=username, password=password, port=port)
-        stdin, stdout, stderr = client.exec_command('dpkg --list | tail -n 10')
-        data = stdout.read() + stderr.read()
-        client.close()
-        data = str(data).replace('\\n', '\n').replace('\\t', '\t')[2:-1]    
-        update.message.reply_text(data)
-        return ConversationHandler.END # Завершаем работу обработчика диалога
+    mon_command = ''
+    if user_input == 'ALL':
+        mon_command = 'dpkg --list | tail -n 10'
     else:
-        client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        client.connect(hostname=host, username=username, password=password, port=port)
-        stdin, stdout, stderr = client.exec_command('dpkg -s '+user_input)
-        data = stdout.read() + stderr.read()
-        client.close()
-        data = str(data).replace('\\n', '\n').replace('\\t', '\t')[2:-1]    
-        update.message.reply_text(data)
-        return ConversationHandler.END # Завершаем работу обработчика диалога
-
-def get_emails(update: Update, context):
-    connection = None
+        mon_command = 'dpkg -s '+user_input
     
+    bot.send_message(message.chat.id, ssh_connect(mon_command)) 
+
+def get_services() -> str:
+    mon_command = 'systemctl --type service | tail -n 10'
+    return ssh_connect(mon_command)
+
+def get_repl_logs() -> str:
+    mon_command = 'cat /var/log/postgresql/* | grep -i replica | tail -n 10'
+    return ssh_connect(mon_command)
+
+def ssh_connect(mon_command) -> str:
     try:
-        connection = psycopg2.connect(user=userPost, password=passwordPost, host=host, port=portPost, database=databasePost)
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.connect(hostname=host, username=username, password=password, port=port)
+        stdin, stdout, stderr = client.exec_command(mon_command)
+        data = stdout.read().decode() + stderr.read().decode()
+        data = str(data).replace('\\n', '\n').replace('\\t', '\t')[2:-1]
+        logging.info("Команда успешно выполнена")
+        return data
+    except (Exception, Error) as error:
+        logging.error("Ошибка при работе по SSH: %s", error)
+        return 'Ошибка подключения по SSH'
+    finally:
+        client.close()
+        logging.info("Соединение по SSH закрыто")
+
+def save_email_db(message, emailNumbers):
+   if message.text == "Да":
+       connection = None
+       try:
+           connection = psycopg2.connect(user=usernameDB, password=passwordDB, host=hostDB, port=portDB, database=databaseDB)
+
+           cursor = connection.cursor()
+           ListEmailNumbers = emailNumbers.split('\n')
+           ListEmailNumbers = ListEmailNumbers[:-1]
+           for i in ListEmailNumbers:
+               cursor.execute("INSERT INTO emails (email) VALUES ('"+i+"');")
+           connection.commit()
+           logging.info("Команда успешно выполнена")
+           bot.send_message(message.chat.id, "Почтовые адреса записаны в базу данных")
+       except (Exception, Error) as error:
+           logging.error("Ошибка при работе с PostgreSQL: %s", error)
+           bot.send_message(message.chat.id, "Ошибка при работе с базой данных. Почтовые адреса не записаны в базу данных")
+       finally:
+           if connection is not None:
+               cursor.close()
+               connection.close()
+               logging.info("Соединение с PostgreSQL закрыто")
+   elif message.text == "Нет":
+       bot.send_message(message.chat.id, "Почтовые адреса не записаны в базу данных")
+   else:
+       bot.send_message(message.chat.id, 'Введен некорректный параметр! Введите "Да" или "Нет"')
+       bot.register_next_step_handler(message, save_email_db, emailNumbers)
+        
+       
+def save_phone_db(message, phoneNumbers):
+    if message.text == "Да":
+       connection = None
+       try:
+           connection = psycopg2.connect(user=usernameDB, password=passwordDB, host=hostDB, port=portDB, database=databaseDB)
+
+           cursor = connection.cursor()
+           ListPhoneNumbers = phoneNumbers.split('\n')
+           ListPhoneNumbers = ListPhoneNumbers[:-1]
+           for i in ListPhoneNumbers:
+               cursor.execute("INSERT INTO numbersphone (number) VALUES ('"+i+"');")
+           connection.commit()
+           logging.info("Команда успешно выполнена")
+           bot.send_message(message.chat.id, "Номера телефонов записаны в базу данных")
+       except (Exception, Error) as error:
+           logging.error("Ошибка при работе с PostgreSQL: %s", error)
+           bot.send_message(message.chat.id, "Ошибка при работе с базой данных. Номера телефонов не записаны в базу данных")
+       finally:
+           if connection is not None:
+               cursor.close()
+               connection.close()
+               logging.info("Соединение с PostgreSQL закрыто")
+    elif message.text == "Нет":
+       bot.send_message(message.chat.id, "Номера телефонов не записаны в базу данных")
+    else:
+       bot.send_message(message.chat.id, 'Введен некорректный параметр! Введите "Да" или "Нет"')
+       bot.register_next_step_handler(message, save_phone_db, phoneNumbers)
+
+def get_emails() -> list:
+    connection = None
+
+    try:
+        connection = psycopg2.connect(user=usernameDB, password=passwordDB, host=hostDB, port=portDB, database=databaseDB)
 
         cursor = connection.cursor()
         cursor.execute("SELECT * FROM emails;")
         data = cursor.fetchall()
-        for row in data:
-            update.message.reply_text(row)
-            logging.info("Команда успешно выполнена")
+        logging.info("Команда успешно выполнена")
+        return data
     except (Exception, Error) as error:
         logging.error("Ошибка при работе с PostgreSQL: %s", error)
-        update.message.reply_text ("Ошибка при работе с PostgreSQL")
     finally:
         if connection is not None:
             cursor.close()
             connection.close()
 
-def get_phone_numbers(update: Update, context):
+def get_phone_numbers() -> list:
     connection = None
-    
+
     try:
-        connection = psycopg2.connect(user=userPost, password=passwordPost, host=host, port=portPost, database=databasePost)
+        connection = psycopg2.connect(user=usernameDB, password=passwordDB, host=hostDB, port=portDB, database=databaseDB)
 
         cursor = connection.cursor()
         cursor.execute("SELECT * FROM numbersphone;")
         data = cursor.fetchall()
-        for row in data:
-            update.message.reply_text(row)
-            logging.info("Команда успешно выполнена")
+        logging.info("Команда успешно выполнена")
+        return data
     except (Exception, Error) as error:
         logging.error("Ошибка при работе с PostgreSQL: %s", error)
-        update.message.reply_text ("Ошибка при работе с PostgreSQL")
     finally:
         if connection is not None:
             cursor.close()
             connection.close()
 
-def get_repl_logs(update: Update, context):
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(hostname=host, username=username, password=password, port=port)
-    stdin, stdout, stderr = client.exec_command('cat /var/log/postgresql/* | grep -i replica | tail -n 10')
-    data = stdout.read() + stderr.read()
-    client.close()
-    data = str(data).replace('\\n', '\n').replace('\\t', '\t')[2:-1]    
-    update.message.reply_text(data)
 
-def main():
-    updater = Updater(TOKEN, use_context=True)
-
-    # Получаем диспетчер для регистрации обработчиков
-    dp = updater.dispatcher
-
-    # Обработчик диалога
-    convHandlerFindPhoneNumbers = ConversationHandler(
-        entry_points=[CommandHandler('find_phone_number', findPhoneNumbersCommand)],
-        states={
-            'find_phone_number': [MessageHandler(Filters.text & ~Filters.command, findPhoneNumbers)],
-        },
-        fallbacks=[]
-    )
-    
-    convHandlerFindEmails = ConversationHandler(
-        entry_points=[CommandHandler('find_email', findEmailsCommand)],
-        states={
-            'find_email': [MessageHandler(Filters.text & ~Filters.command, findEmails)],
-        },
-        fallbacks=[]
-    )
-    
-    convHandlerPassword = ConversationHandler(
-        entry_points=[CommandHandler('verify_password', verifyPasswordCommand)],
-        states={
-            'verify_password': [MessageHandler(Filters.text & ~Filters.command, verifyPassword)],
-        },
-        fallbacks=[]
-    )
-    
-    convHandlerGetAptList = ConversationHandler(
-        entry_points=[CommandHandler('get_apt_list', GetAptListCommand)],
-        states={
-            'get_apt_list': [MessageHandler(Filters.text & ~Filters.command, GetAptList)],
-        },
-        fallbacks=[]
-    )
-
-	# Регистрируем обработчики команд
-    dp.add_handler(convHandlerFindPhoneNumbers)
-    dp.add_handler(convHandlerFindEmails)
-    dp.add_handler(convHandlerPassword)
-    
-    dp.add_handler(CommandHandler('get_release', get_release))
-    dp.add_handler(CommandHandler('get_uname', get_uname))
-    dp.add_handler(CommandHandler('get_uptime', get_uptime))
-    dp.add_handler(CommandHandler('get_df', get_df))
-    dp.add_handler(CommandHandler('get_free', get_free))
-    dp.add_handler(CommandHandler('get_mpstat', get_mpstat))
-    dp.add_handler(CommandHandler('get_w', get_w))
-    dp.add_handler(CommandHandler('get_auths', get_auths))
-    dp.add_handler(CommandHandler('get_critical', get_critical))
-    dp.add_handler(CommandHandler('get_ps', get_ps))
-    dp.add_handler(CommandHandler('get_ss', get_ss))
-    dp.add_handler(convHandlerGetAptList)
-    dp.add_handler(CommandHandler('get_services', get_services))
-
-    dp.add_handler(CommandHandler('get_emails', get_emails))
-    dp.add_handler(CommandHandler('get_phone_numbers', get_phone_numbers))
-    dp.add_handler(CommandHandler('get_repl_logs', get_repl_logs))
-
-    updater.start_polling()# Запускаем бота
-    updater.idle()# Останавливаем бота при нажатии Ctrl+C
-
-
-if __name__ == '__main__':
-    main()
+bot.infinity_polling()
