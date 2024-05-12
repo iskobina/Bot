@@ -1,0 +1,6 @@
+db_user: postgres
+db_password: Qq12345
+db_name: tg_bot
+db_repl_user: repl_user
+db_repl_password: Qq12345
+ip_db_master: 192.168.133.164
