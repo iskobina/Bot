@@ -43,23 +43,23 @@
         db: "{{ db_name }}"
         name: emails
         columns:
-          - id bigserial primary key
+          - id serial primary key
           - email text
     - name: Create table numbersphone
       postgresql_table:
         db: "{{ db_name }}"
         name: numbersphone
         columns:
-          - id bigserial primary key
+          - id serial primary key
           - number text
     - name: Insert into emails test value
       postgresql_query:
         db: "{{ db_name }}"
-        query: INSERT INTO emails (id, email) VALUES (1, 'help@ptsecurity.com')
+        query: INSERT INTO emails (email) VALUES ('help@ptsecurity.com')
     - name: Insert into numbersphone test value
       postgresql_query:
         db: "{{ db_name }}"
-        query: INSERT INTO numbersphone (id, number) VALUES (1, '+74957440144')
+        query: INSERT INTO numbersphone (number) VALUES ('+74957440144')
 - name: Stop PostgreSQL on db_repl_server
   hosts: db_repl_server
   become: yes
