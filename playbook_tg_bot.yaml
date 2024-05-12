@@ -140,6 +140,12 @@
         regexp: '^#?(\s*hot_standby\s+)\S+'
         line: "hot_standby = on"
         state: present
+    - name: Change log_replication_commands
+      lineinfile:
+        path: /etc/postgresql/14/main/postgresql.conf
+        regexp: '^#?(\s*log_replication_commands\s+)\S+'
+        line: "log_replication_commands = on"
+        state: present
 - name: Restart PostgreSQL on db_server
   hosts: db_server
   become: yes
