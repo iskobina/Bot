@@ -204,7 +204,7 @@ def get_auths() -> str:
     return ssh_connect(mon_command)
 
 def get_critical() -> str:
-    mon_command = "cat /var/log/syslog | grep -P \'error|crit\' | tail -n 5"
+    mon_command = "journalctl -p crit -n 5"
     return ssh_connect(mon_command)
 
 def get_ps() -> str:
